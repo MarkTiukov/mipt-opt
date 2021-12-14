@@ -1,23 +1,268 @@
 \documentclass[12pt]{article}
 \usepackage[T2A]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage[english,russian]{babel}
-\usepackage{amsmath, amssymb, amsfonts, amsthm}
+\usepackage[russian]{babel}
+\usepackage{secdot}
+
+\textheight=24cm
+\textwidth=16cm
+\oddsidemargin=0pt
+\topmargin=-1.5cm
+\parindent=24pt
+\parskip=0pt
+\tolerance=2000\flushbottom
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage[]{algorithm2e}
+\usepackage[shortlabels]{enumitem}
+\theoremstyle{definition}
+\usepackage{float}
+\usepackage{graphicx}
 \usepackage{hyperref}
-\setlength{\parindent}{0pt}
+\usepackage{xcolor}
+
+\definecolor{linkcolor}{HTML}{4000FF} % цвет ссылок
+\hypersetup{pdfstartview=FitH,  linkcolor=linkcolor,urlcolor=urlcolor, colorlinks=true}
 
 \title{Regularized Nonlinear Acceleration}
-\date{осень 2021}
-\author{Марк Тюков}
+\date{осень 2021г.}
+\author{Марк Тюков, группа Б05-923}
+
+\newtheorem*{Def*}{Определение}
+\newtheorem*{Th*}{Теорема}
+
+\newtheorem{Def}{Определение}
+\newtheorem{Th}{Теорема}
+\newtheorem{Prop}{Предложение}
+\newtheorem{St}{Утверждение}
+\newtheorem{Cor}{Следствие}
+\numberwithin{Def}{section}
+\numberwithin{Th}{section}
+\numberwithin{Prop}{section}
+\numberwithin{St}{section}
+\numberwithin{Cor}{section}
+
+\newenvironment{Proof}                            {\par\noindent{\bf Доказательство.}}        {\hfill$\scriptstyle\blacksquare$}
+
+\newcommand{\Set}[2]{
+  \{\, #1 \mid #2 \, \}
+}
 
 \begin{document}
 \maketitle
-
 \tableofcontents
-
 \newpage
 
-\section{Часть 1}
-\section{Часть 2}
+\section{Anderson acceleration}
+
+Пусть необходимо решить задачу оптимизации:
+\begin{align*}
+	\min_{x\in \mathbb{R}^n} f(x),
+\end{align*}
+где $f(x)$ сильно выпукла с константой $\mu$, а её градиент липшецев с константой
+$L$. Будем искать решение с помощью метода неподвижной точки:
+\begin{equation}\label{FPI}
+x_{i+1}=g(x_i),\quad i=\overline{0,k}
+\end{equation}
+
+Пусть $g(x)$ дифференцируема и $G$~"--- матрица Якоби функции $g$ в точке $x^*$.
+Далее считаем $G$ симметричной положительно определённой матрицей,
+$G\preceq\sigma I$, где $\sigma<1$. Тогда из \eqref{FPI} получаем
+линейный метод неподвижной точки:
+\begin{equation}\label{LFPI}
+x_{i+1}=g(x^*)+G(x_i-x^*)+O\left(\|x_i-x^*\|^2_2\right),\quad i=\overline{1,n}
+\end{equation}
+Пренебрегая вторым порядком малости и учитывая, что $x^*$~"--- неподвижная точка
+$g(x)$, то есть $g(x^*)=x^*$, получаем
+$$
+x_{i+1}-x^*=G(x_i-x^*)$$
+В силу того, что $\|G\|_2\leqslant\sigma< 1$, получаем линейную скорость
+сходимости:
+\newcommand{\euc}[1]{\|#1\|_2}
+$$
+\euc{x_i-x^*}\leqslant \sigma\euc{x_{i-1}-x^*}\leqslant \sigma^i\euc{x_0-x^*}
+$$
+
+Рассмотрим линейную комбинацию $x_i$ после $k$ итераций:
+$$
+\sum_{i=0}^k c_ix_i=\sum_{i=0}^k c_ix^*+\sum_{i=0}^k c_iG(x_i-x^*)=
+\left(\sum_{i=0}^k c_i\right)x^*+\left(\sum_{i=0}^k c_i G^i\right)(x_0-x^*)
+$$
+и определим многочлен
+$$
+p(z):=\sum_{i=0}^k c_iz^i
+$$
+Теперь линейную комбинацию можно записать с помощью матричного многочлена $p(G)$,
+добавив ограничение $p(1)=\sum_{i=0}^kc_i=1$:
+\begin{equation}\label{error_term}
+\sum_{i=0}^kc_ix_i=x^*+\underbrace{p(G)(x_0-x^*)}_{\text{ошибка}}
+\end{equation}
+Будем искать коэффициенты $c$ (или $p$ соответственно), которые минимизируют
+ошибку:
+$$
+c^\star=\underset{\{c\in\mathbb{R}^{k+1}:c^\mathsf{T}\mathbf{1}=1\}}
+{\arg\min}\left\|\sum_{i=0}^kc_iG^i(x_0-x^*)\right\|_2=
+\underset{\{p\in\mathbb{R}_k[x]:p(1)=1\}}
+{\arg\min}\left\|p(G)(x_0-x^*)\right\|_2
+$$
+где $\mathbb{R}_k[x]$~"--- пространство многочленов степени не выше $k$.
+
+Следующее предложение даёт оценку сверху на размер ошибки:
+
+\begin{Prop}\label{prop_bound}
+	Пусть
+	\begin{enumerate}
+		\item последовательность $x_i,\,i=\overline{0,n}$, получена из
+		\eqref{LFPI};
+		\item $G$~"--- симметричная матрица Якоби $g$, для которой
+		выполнено ${0\preceq G\preceq\sigma I}$, $\sigma<1$;
+		\item $x^*$~"--- неподвижная точка $g$.
+	\end{enumerate}
+	Тогда $l_2$ норма ошибки \eqref{error_term} ограничена:
+	\begin{equation}
+		\left\|\sum_{i=0}^kc_i^\star x_i-x^*\right\|_2\leqslant\begin{cases}
+		\dfrac{2\beta^k}{1+\beta^{2k}}\|x_0-x^*\|_2,&\text{если }k<m \\
+		0&\text{иначе,}
+	\end{cases}
+	\end{equation}
+	где $m$~"--- число различных собственных значений $G$ и
+	$$
+	\beta=\dfrac{1-\sqrt{1-\sigma}}{1+\sqrt{1-\sigma}}<1
+	$$
+\end{Prop}
+
+Данная оценка получена из полу-итерационного метода Чебышёва,
+после преобразования получаем
+$$
+\left\|\sum_{i=0}^kc_i^\star x_i-x^*\right\|_2\leqslant
+\left(1-\sqrt{1-\sigma}\right)^k\euc{x_0-x^*}\ll\sigma^k\euc{x_0-x^*},
+$$
+так что достигнуто ускорение. В то же время, для применения этого метода
+требуется знание оценки $\sigma$ матрицы Якоби $G$ в точке $x^*$, кроме того,
+коэффициенты в линейной комбинации могут быть очень большими, что влияет
+на численную стабильность алгоритма.
+
+В связи с перечисленными выше проблемами далее сосредоточимся на методе, который
+будет приближённо минимизировать ошибку \eqref{error_term}. В силу того, что $G$ 
+и $x^*$ неизвестны, будем работать с невязкой:
+$$
+r_i=x_{i+1}-x_i=g(x_i)-x_i,
+$$
+тогда линейный метод неподвижной точки \eqref{LFPI} принимает вид
+$$
+r_i=x_{i+1}-x_i=(G-I)(x_i-x^*),
+$$
+а линейная комбинация записывается как
+$$
+\sum_{i=0}^kc_ir_i=(G-I)\sum_{i=0}^k c_i(x_i-x^*)=(G-I)p(G)(x_0-x^*),
+$$
+что равно ошибке $p(G)(x_0-x^*)$, умноженной на $(G-I)$, то есть использование
+этих коэффициентов будет приближённо минимизировать ошибку.
+
+\begin{Prop}\label{prop_sigma}
+	Пусть
+	$$
+	c^\star=\underset{\{c\in\mathbb{R}^{k+1}:c^\mathsf{T}\mathbf{1}=1\}}
+	{\arg\min}\left\|\sum_{i=0}^kc_ir_i\right\|_2
+	$$
+	Тогда последовательность $x_i,\,i=\overline{0,k}$, усреднённая с помощью
+	коэффициентов $c^*$, удовлетворяет соотношению
+	\begin{equation}\label{approx_bound}
+	\left\|\sum_{i=0}^kc_i^*x_i-x^*\right\|_2\leqslant\dfrac1{1-\sigma}
+	\underset{\{c\in\mathbb{R}^{k+1}:c^\mathsf{T}\mathbf{1}=1\}}
+	{\arg\min}\left\|\sum_{i=0}^kc_iG^i(x_0-x^*)\right\|_2,
+	\end{equation}
+	где $0\preceq G\preceq\sigma I,\,\sigma<1$.
+\end{Prop}
+
+Отсюда получаем ускорение Андерсона:
+\\\\
+\begin{algorithm*}[H]
+\caption{Anderson acceleration}
+\LinesNumbered
+ \KwData{Последовательность $x_0,x_1,\ldots,x_{k+1}\in\mathbb{R}^d$.}
+ Составить матрицу $R=[r_0,\ldots,r_k]$\;
+ Решить задачу
+ $$
+ c^*=\underset{\{c\in\mathbb{R}^{k+1}:c^\mathsf{T}\mathbf{1}=1\}}
+	{\arg\min}\left\|\sum_{i=0}^kc_ir_i\right\|_2
+ $$
+ 
+ 
+ \KwResult{Аппроксимация $\widehat{x^*}=\sum_{i=0}^kc_i^*x_i$, 
+ удовлетворяющая \eqref{approx_bound}.}
+\end{algorithm*}
+
+\paragraph{}
+Из ККТ можно вывести, что решение получается в 2 шага:
+\begin{enumerate}
+	\item Решить $R^\mathsf{T}Rz=\mathbf{1}$
+	\item $c^*=z/(\mathbf{1}^\mathsf{T}z)$
+\end{enumerate}
+
+\section{Regularized nonlinear acceleration}
+
+Чтобы повысить численную стабильность алгоритма и обеспечить его работу, если
+функция $g$ содержит шум вида $x_{i+1}-x_i=g(x_i)-x_i=G(x_i-x^*)+e_i$,
+добавим регуляризацию в предложенный выше алгоритм:
+\\\\
+\begin{algorithm*}[H]
+\caption{Regularized Nonlinear Acceleration (RNA)}
+\LinesNumbered
+ \KwData{Последовательность $x_0,x_1,\ldots,x_{k+1}\in\mathbb{R}^d$,
+ полученная из метода неподвижной точки, и регуляризационный параметр
+ $\lambda>0$.}
+ Составить матрицу $R=[r_0,\ldots,r_k]$, где $r_i=x_{i+1}-x_i$\;
+ Решить задачу
+ $$
+ c^*=\underset{c^\mathsf{T}\mathbf{1}=1}{\arg\min}\euc{Rc}^2+\lambda\euc{c}^2,
+ $$
+ или, что эквивалентно, решить $(R^\mathsf{T}R+\lambda I)z=\mathbf{1}$ и взять
+ $c^*_\lambda=z/\mathbf{1}^\mathsf{T}z$.
+ 
+ \KwResult{Аппроксимация $\widehat{x^*}=\sum_{i=0}^k(c^*_\lambda)_ix_i$, 
+ удовлетворяющая \eqref{approx_bound}.}
+\end{algorithm*}
+
+\paragraph{}Наконец, добавим поиск по сетке для выбора $\lambda$ и backtracking
+для выбора размера шага:
+$$
+\min_{t>0}f(x_0+t(x_{extr}(\lambda)-x_0))
+$$
+\\\\
+\begin{algorithm*}[H]
+\caption{Adaptive Regularized Nonlinear Acceleration (ARNA)}
+\LinesNumbered
+ \KwData{Последовательность $x_0,x_1,\ldots,x_{k+1}\in\mathbb{R}^d$,
+ полученная из метода неподвижной точки, границы
+ $[\lambda_{\min},\lambda_{\max}]$ и целевая функция $f(x)$.}
+ Разбить отрезок $[\lambda_{\min},\lambda_{\max}]$ на $k$ частей, используя
+ логарифмический масштаб\;
+ Составить матрицу $R=[r_0,\ldots,r_k]$, где $r_i=x_{i+1}-x_i$\;
+ Построить матрицу $M=R^\mathsf{T}R/\euc{R^\mathsf{T}R}$\;
+ \For{$j=\overline{1,k}$}{
+ 	Решить систему $(M+\lambda_j)z=\mathbf{1}$\;
+ 	Нормировать решение: $c^*_{\lambda_j}=z/\mathbf{1}^\mathsf{T}z$\;
+ 	Вычислить $x_{extr}(\lambda_j)=\sum_{i=0}^k(c^*_{\lambda_j})_ix_i$\;
+ }
+ Выбрать $x^*_{extr}=\arg\min_{j=\overline{1,k}}
+ f(x_{extr}(\lambda_j))$\;
+ Задать $F_t=f(x_0+t(x^*_{extr}-x_0))$\;
+ $t:=1$\;
+ \While{$F_{2t}<F_t$}{
+ $t=2t$\;
+ }
+ \KwResult{Аппроксимация $(x_0+t(x^*_{extr}-x_0))$}
+\end{algorithm*}
+
+\section{Список литературы}
+
+\begin{enumerate}[{[}1{]}]
+	\item \hyperlink{https://arxiv.org/abs/1606.04133}{Scieur, D., d’Aspremont, A., and Bach, F. (2016). "Regularized Nonlinear Acceleration". ArXiv e-prints, arXiv:1606.04133.}
+	\item \hyperlink{https://arxiv.org/abs/2110.02457}{Huan He, Shifan Zhao, Yuanzhe Xi, Joyce C Ho, Yousef Saad. "Solve Minimax Optimization by Anderson Acceleration". ArXiv e-prints, arXiv:2110.02457.}
+
+\end{enumerate}
 
 \end{document}
